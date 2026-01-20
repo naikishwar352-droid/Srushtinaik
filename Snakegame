@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Ultimate Snake Game</title>
+
+<style>
+body{
+  margin:0;
+  height:100vh;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  font-family:Arial;
+  background:#f0f0f0;
+}
+canvas{
+  border:2px solid black;
+  touch-action:none;
+}
+#controls{
+  margin-top:10px;
+  text-align:center;
+}
+#controls button{
+  font-size:20px;
+  padding:10px 15px;
+  margin:3px;
+}
+</style>
+</head>
+
+<body>
+
+<canvas id="gameCanvas" width="300" height="300"></canvas>
+
+<div id="controls">
+  <button onclick="setDir(0,-10)">⬆️</button><br>
+  <button onclick="setDir(-10,0)">⬅️</button>
+  <button onclick="setDir(10,0)">➡️</button><br>
+  <button onclick="setDir(0,10)">⬇️</button><br>
+  <button onclick="toggleDark()">🌙 Dark Mode</button>
+</div>
+
+<audio id="eatSound" src="https://actions.google.com/sounds/v1/cartoon/pop.ogg"></audio>
+<audio id="gameOverSound" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"></audio>
+
+<script>
+const canvas=document.getElementById("gameCanvas");
+const ctx=canvas.getContext("2d");
+
+const box=10, size=300;
+
+let snake, dx, dy;
+let snake2, dx2, dy2;
+let food, powerUp=null;
+let obstacles=[];
+let score=0, level=1;
+let darkMode=false;
+
+const eatSound=document.getElementById("eatSound");
+const gameOverSound=document.getElementById("gameOverSound");
+
+// ---------- INIT ----------
+function initGame(){
+  snake=[{x:150,y:150},{x:140,y:150},{x:130,y:150}];
+  snake2=[{x:50,y:50},{x:40,y:50},{x:30,y:50}];
+  dx=10; dy=0;
+  dx2=10; dy2=0;
+  score=0; level=1;
+  obstacles=[];
+  food=randomPos();
+  powerUp=null;
+}
+
+// ---------- HELPERS ----------
+function randomPos(){
+  return {
+    x:Math.floor(Math.random()*30)*10,
+    y:Math.floor(Math.random()*30)*10
+  };
+}
+
+function toggleDark(){ darkMode=!darkMode; }
+
+function setDir(x,y){
+  if(dx===0||dy===0){ dx=x; dy=y; }
+}
+
+// ---------- DRAW ----------
+function clearCanvas(){
+  ctx.fillStyle=darkMode?"#222":"white";
+  ctx.fillRect(0,0,size,size);
+  ctx.strokeStyle=darkMode?"white":"black";
+  ctx.strokeRect(0,0,size,size);
+}
+
+function drawSnake(){
+  snake.forEach(p=>{
+    ctx.fillStyle="lightgreen";
+    ctx.fillRect(p.x,p.y,box,box);
+  });
+}
+
+function drawSnake2(){
+  snake2.forEach(p=>{
+    ctx.fillStyle="orange";
+    ctx.fillRect(p.x,p.y,box,box);
+  });
+}
+
+function drawFood(){
+  ctx.fillStyle="red";
+  ctx.fillRect(food.x,food.y,box,box);
+}
+
+function drawPowerUp(){
+  if(powerUp){
+    ctx.fillStyle="blue";
+    ctx.fillRect(powerUp.x,powerUp.y,box,box);
+  }
+}
+
+function drawObstacles(){
+  ctx.fillStyle="gray";
+  obstacles.forEach(o=>ctx.fillRect(o.x,o.y,box,box));
+}
+
+function drawText(){
+  ctx.fillStyle=darkMode?"white":"black";
+  ctx.font="12px Arial";
+  ctx.fillText("Score: "+score,5,15);
+  ctx.fillText("Level: "+level,5,30);
+}
+
+// ---------- GAME LOGIC ----------
+function advanceSnake(){
+  const head={x:snake[0].x+dx,y:snake[0].y+dy};
+  snake.unshift(head);
+
+  if(head.x===food.x && head.y===food.y){
+    eatSound.play();
+    score++;
+    if(score%5===0){
+      level++;
+      obstacles.push(randomPos());
+    }
+    food=randomPos();
+  }
+  else if(powerUp && head.x===powerUp.x && head.y===powerUp.y){
+    score+=2;
+    powerUp=null;
+  }
+  else snake.pop();
+}
+
+function advanceSnake2(){
+  const h={x:snake2[0].x+dx2,y:snake2[0].y+dy2};
+  snake2.unshift(h);
+  snake2.pop();
+}
+
+function collision(){
+  const h=snake[0];
+  if(h.x<0||h.y<0||h.x>=size||h.y>=size) return true;
+  for(let i=1;i<snake.length;i++)
+    if(h.x===snake[i].x && h.y===snake[i].y) return true;
+  for(let o of obstacles)
+    if(h.x===o.x && h.y===o.y) return true;
+  return false;
+}
+
+// ---------- CONTROLS ----------
+document.addEventListener("keydown",e=>{
+  if(e.keyCode===37&&dx===0){dx=-10;dy=0;}
+  if(e.keyCode===38&&dy===0){dx=0;dy=-10;}
+  if(e.keyCode===39&&dx===0){dx=10;dy=0;}
+  if(e.keyCode===40&&dy===0){dx=0;dy=10;}
+
+  // Player 2 (WASD)
+  if(e.key==="a"){dx2=-10;dy2=0;}
+  if(e.key==="d"){dx2=10;dy2=0;}
+  if(e.key==="w"){dx2=0;dy2=-10;}
+  if(e.key==="s"){dx2=0;dy2=10;}
+});
+
+// Swipe
+let sx,sy;
+canvas.addEventListener("touchstart",e=>{
+  sx=e.touches[0].clientX;
+  sy=e.touches[0].clientY;
+});
+canvas.addEventListener("touchend",e=>{
+  let dxT=e.changedTouches[0].clientX-sx;
+  let dyT=e.changedTouches[0].clientY-sy;
+  if(Math.abs(dxT)>Math.abs(dyT)){
+    dxT>0?setDir(10,0):setDir(-10,0);
+  }else{
+    dyT>0?setDir(0,10):setDir(0,-10);
+  }
+});
+
+// ---------- LOOP ----------
+function gameLoop(){
+  if(collision()){
+    gameOverSound.play();
+    alert("Game Over! Score: "+score);
+    initGame();
+  }
+
+  clearCanvas();
+  advanceSnake();
+  advanceSnake2();
+
+  if(Math.random()<0.01 && !powerUp) powerUp=randomPos();
+
+  drawFood();
+  drawPowerUp();
+  drawObstacles();
+  drawSnake();
+  drawSnake2();
+  drawText();
+
+  setTimeout(gameLoop,Math.max(60,150-level*10));
+}
+
+// START
+initGame();
+gameLoop();
+</script>
+
+</body>
+</html>
